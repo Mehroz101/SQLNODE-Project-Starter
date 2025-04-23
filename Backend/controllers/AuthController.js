@@ -1,68 +1,43 @@
-const User = require("../models/User"); // Use require for imports
-const jwt = require("jsonwebtoken"); // Example of another require
+const {createUser, findUser} = require("../services/userServices");
 const signup = async (req, res) => {
   try {
-    console.log(req.body);
-    const { username, password, confirmPassword } = req.body;
-    if (password === confirmPassword) {
-      const isUserExits = await User.findOne({ username });
-      if (isUserExits) {
-        return res.status(400).send({
-          success: false,
-          message: "User already exists",
-        });
-      } else {
-        const user = new User({
-          username,
-          password,
-          role: "STD",
-        });
-        await user.save();
-        res.status(201).send({
-          success: true,
-          message: "User successfully signed up",
-        });
-      }
-    } else {
-      res.status(400).send({
+    const { username, password, role } = req.body;
+
+    const user = await createUser(username, password, role);
+    console.log("✅ User created successfully!", user);
+    if (!user) {
+      return res.status(400).send({
         success: false,
-        message: "Password does not match",
+        message: "User already exists",
       });
     }
-  } catch (error) {
-    res.status(500).send({
-      success: false,
-      message: error.message,
+    res.status(201).send({
+      success: true,
+      message: "User created successfully",
+      user,
     });
+  } catch (error) {
+    console.error("❌ Error inserting user:", error.message);
+    throw new Error("Error inserting user");
   }
 };
 
 const login = async (req, res) => {
   try {
-    const { username, password, isAdmin = false } = req.body;
-    const user = await User.findOne({ username, isAdmin: isAdmin });
-    if (user) {
-      if (user.password === password) {
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY);
-
-        res.status(200).send({
-          success: true,
-          message: "User successfully logged in",
-          token,
-          role: user.isAdmin,
-        });
-      } else {
-        res.status(400).send({
-          success: false,
-          message: "Invalid password",
-        });
-      }
-    } else {
-      res.status(400).send({
+    const { username, password } = req.body;
+    const user = await findUser(username, password);
+    if (!user) {
+      return res.status(401).send({
         success: false,
-        message: "User does not exist",
+        message: "Invalid username or password",
       });
     }
+    console.log("✅ User found successfully!", user);
+    res.status(200).send({
+      success: true,
+      message: "Login successful",
+      user,
+    });
   } catch (error) {
     res.status(500).send({
       success: false,
